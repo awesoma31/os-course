@@ -10,6 +10,9 @@ struct stat;
 struct superblock;
 struct list;
 
+// dump
+int dump(void);
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);

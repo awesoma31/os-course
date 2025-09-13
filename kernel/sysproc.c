@@ -16,6 +16,12 @@ sys_exit(void)
 }
 
 uint64
+sys_dump(void)
+{
+  return dump();
+}
+
+uint64
 sys_getpid(void)
 {
   return myproc()->pid;
