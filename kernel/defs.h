@@ -12,6 +12,7 @@ struct list;
 
 // dump
 int dump(void);
+int dump2(void);
 
 // bio.c
 void            binit(void);
