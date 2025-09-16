@@ -30,16 +30,16 @@ int dump() {
   struct proc* p = myproc();
   struct trapframe *tf = p->trapframe;
 
-  printf("s2  0x%x\n",  (uint)tf->s2);
-  printf("s3  0x%x\n",  (uint)tf->s3);
-  printf("s4  0x%x\n",  (uint)tf->s4);
-  printf("s5  0x%x\n",  (uint)tf->s5);
-  printf("s6  0x%x\n",  (uint)tf->s6);
-  printf("s7  0x%x\n",  (uint)tf->s7);
-  printf("s8  0x%x\n",  (uint)tf->s8);
-  printf("s9  0x%x\n",  (uint)tf->s9);
-  printf("s10 0x%x\n",  (uint)tf->s10);
-  printf("s11 0x%x\n",  (uint)tf->s11);
+  printf("s2 = %d\n",  (uint)tf->s2);
+  printf("s3 = %d\n",  (uint)tf->s3);
+  printf("s4 = %d\n",  (uint)tf->s4);
+  printf("s5 = %d\n",  (uint)tf->s5);
+  printf("s6 = %d\n",  (uint)tf->s6);
+  printf("s7 = %d\n",  (uint)tf->s7);
+  printf("s8 = %d\n",  (uint)tf->s8);
+  printf("s9 = %d\n",  (uint)tf->s9);
+  printf("s10 = %d\n",  (uint)tf->s10);
+  printf("s11 = %d\n",  (uint)tf->s11);
 
   return 0;
 }
