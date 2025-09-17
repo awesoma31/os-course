@@ -44,6 +44,75 @@ int dump() {
   return 0;
 }
 
+
+static struct proc* find_by_pid(int pid) {
+  struct proc *p;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    int found = (p->pid == pid && p->state != UNUSED);
+    release(&p->lock);
+    if (found) return p;
+  }
+  return 0;
+}
+
+static int is_ancestor_or_self(struct proc *caller, struct proc *target) {
+  if (caller == target) return 1;
+  struct proc *p = target;
+
+  while (1) {
+    acquire(&p->lock);
+    struct proc *pp = p->parent;
+    release(&p->lock);
+
+    if (pp == 0) return 0;
+    if (pp == caller) return 1;
+
+    p = pp;
+  }
+}
+
+int dump2(int pid, int regnum, uint64 *uret) {
+  if (regnum < 2 || regnum > 11) return -3;
+
+  struct proc *caller = myproc();
+  struct proc *target = find_by_pid(pid);
+  if (!target) return -2;
+
+  if (!is_ancestor_or_self(caller, target))
+    return -1;
+
+  uint64 val = 0;
+  acquire(&target->lock);
+  struct trapframe *tf = target->trapframe;
+  if (tf == 0) {
+    release(&target->lock);
+    return -2;
+  }
+
+  switch (regnum) {
+    case 2:  val = tf->s2;  break;
+    case 3:  val = tf->s3;  break;
+    case 4:  val = tf->s4;  break;
+    case 5:  val = tf->s5;  break;
+    case 6:  val = tf->s6;  break;
+    case 7:  val = tf->s7;  break;
+    case 8:  val = tf->s8;  break;
+    case 9:  val = tf->s9;  break;
+    case 10: val = tf->s10; break;
+    case 11: val = tf->s11; break;
+    default:
+      release(&target->lock);
+      return -3;
+  }
+  release(&target->lock);
+
+  if (copyout(caller->pagetable, (uint64)uret, (char*)&val, sizeof(val)) < 0)
+    return -4;
+
+  return 0;
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
