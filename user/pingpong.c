@@ -13,16 +13,17 @@ int main(void) {
   int pid = fork();
   if (pid == 0) { // ch
     if (read(pipka[0], buf, 4) != 4) {
-      fprintf(2, "read error\n");
+      fprintf(2, "child read error\n");
       exit(1);
     }
     printf("%d: got %s\n", getpid(), buf);
 
     if (write(pipka[1], "pong", 4) != 4) {
-      fprintf(2, "read error\n");
+      fprintf(2, "child write error\n");
       exit(1);
     }
 
+    close(pipka[0]);
     close(pipka[1]);
     exit(0);
   } else { // parent -- batyok
@@ -40,6 +41,7 @@ int main(void) {
     printf("%d: got %s\n", getpid(), buf);
 
     close(pipka[0]);
+    close(pipka[1]);
     exit(0);
   }
 }
