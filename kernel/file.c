@@ -30,12 +30,12 @@ filealloc(void)
 {
   struct file *f = (struct file*) bd_malloc(sizeof(struct file));
 
-  if (f != 0) {
-    f->ref = 1;
-    return f;
-  }
+  if (!f) { return 0; }
 
-  return 0;
+  memset(f, 0, sizeof(*f));
+  f->ref = 1;
+  return f;
+
 }
 
 // Increment ref count for file f.
