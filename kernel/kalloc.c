@@ -9,53 +9,20 @@
 #include "riscv.h"
 #include "defs.h"
 
-void freerange(void *pa_start, void *pa_end);
-
-extern char end[]; // first address after kernel.
-                   // defined by kernel.ld.
-
-struct run {
-  struct run *next;
-};
-
-struct {
-  struct spinlock lock;
-  struct run *freelist;
-} kmem;
-
-void
-kinit()
-{
-  char *p = (char *)  PGROUNDDOWN((uint64) end);
+extern char end[];  // first address after kernel.
+                    // defined by kernel.ld.
+void kinit() {
+  char *p = (char *)PGROUNDUP((uint64)end);
   bd_init(p, (void *)PHYSTOP);
-  // initlock(&kmem.lock, "kmem");
-  // freerange(end, (void*)PHYSTOP);
 }
 
-void
-freerange(void *pa_start, void *pa_end)
-{
-  char *p;
-  p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
-    kfree(p);
-}
-
-// Free the page of physical memory pointed at by pa,
+// Free the page of physical memory pointed at by v,
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
 // initializing the allocator; see kinit above.)
-void
-kfree(void *pa)
-{
-  bd_free(pa);
-}
+void kfree(void *pa) { bd_free(pa); }
 
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
-void *
-kalloc(void)
-{
-  return bd_malloc(PGSIZE);
-}
+void *kalloc(void) { return bd_malloc(PGSIZE); }
