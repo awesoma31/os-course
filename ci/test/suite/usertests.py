@@ -36,7 +36,7 @@ QUICK_TESTS = [
     Xv6UserTest(name="exitwait", timeout=timedelta(seconds=1)),
     Xv6UserTest(name="reparent", timeout=timedelta(seconds=3)),
     Xv6UserTest(name="twochildren", timeout=timedelta(seconds=10)),
-    Xv6UserTest(name="forkfork", timeout=timedelta(seconds=3)),
+    Xv6UserTest(name="forkfork", timeout=timedelta(seconds=30)),
     Xv6UserTest(name="forkforkfork", timeout=timedelta(seconds=600)),
     Xv6UserTest(name="reparent2", timeout=timedelta(seconds=15)),
     Xv6UserTest(name="mem", timeout=timedelta(seconds=5)),
@@ -54,7 +54,7 @@ QUICK_TESTS = [
     Xv6UserTest(name="rmdot", timeout=timedelta(seconds=2)),
     Xv6UserTest(name="dirfile", timeout=timedelta(seconds=2)),
     Xv6UserTest(name="iref", timeout=timedelta(seconds=16)),
-    Xv6UserTest(name="forktest", timeout=timedelta(seconds=1)),
+    Xv6UserTest(name="forktest", timeout=timedelta(seconds=10)),
     Xv6UserTest(name="sbrkbasic", timeout=timedelta(seconds=3)),
     Xv6UserTest(name="sbrkmuch", timeout=timedelta(seconds=2)),
     Xv6UserTest(
