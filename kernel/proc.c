@@ -1,4 +1,3 @@
-#include "synclist.h"
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
@@ -6,10 +5,12 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "synclist.h"
 
 struct cpu cpus[NCPU];
 
 // struct proc proc[NPROC];
+
 struct synclist proctable;
 
 struct proc *initproc;
@@ -19,7 +20,7 @@ struct spinlock pid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc *p);
-// static void removeproc(struct proc *p);
+static void removeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
@@ -29,37 +30,14 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-// Allocate a page for each process's kernel stack.
-// Map it high in memory, followed by an invalid
-// guard page.
-// void
-// proc_mapstacks(pagetable_t kpgtbl)
-// {
-//   struct proc *p;
-//   for(p = proc; p < &proc[NPROC]; p++) {
-//     char *pa = kalloc();
-//     if(pa == 0)
-//       panic("kalloc");
-//     uint64 va = KSTACK((int) (p - proc));
-//     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
-//   }
-// }
-
 // initialize the proc table.
 void
 procinit(void)
 {
-  // struct proc *p;
-  
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
 
   synclist_init(&proctable);
-  // for(p = proc; p < &proc[NPROC]; p++) {
-  //     initlock(&p->lock, "proc");
-  //     p->state = UNUSED;
-  //     p->kstack = KSTACK((int) (p - proc));
-  // }
 }
 
 // Must be called with interrupts disabled,
@@ -93,6 +71,8 @@ myproc(void)
   return p;
 }
 
+int a = 0;
+
 int
 allocpid()
 {
@@ -106,18 +86,22 @@ allocpid()
   return pid;
 }
 
-// alloc new process structure using buddy allocator
+// Allocate new process structure.
 // If there are no free procs, or a memory allocation fails, return 0.
 static struct proc*
 allocproc(void)
 {
+
+  if(a++ > 900) {a--; return 0;}
+
   struct proc *p = bd_malloc(sizeof(struct proc));
 
   if (p == 0) {
     return 0;
   }
 
-  memset(p, 0, sizeof(*p)); // TODO: check
+  memset(p, 0, sizeof(*p));
+  
   initlock(&p->lock, "proc");
 
   p->pid = allocpid();
@@ -145,22 +129,14 @@ allocproc(void)
 static void
 freeproc(struct proc *p)
 {
+  a--;
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
-  if (p->kstack)
-    kfree((void *)p->kstack);
-  // p->pagetable = 0;
-  // p->sz = 0;
-  // p->pid = 0;
-  // p->parent = 0;
-  // p->name[0] = 0;
-  // p->chan = 0;
-  // p->killed = 0;
-  // p->xstate = 0;
-  // p->state = UNUSED;
+  if(p->kstack)
+    kfree((void*)p->kstack);
 }
 
 // Remove a proc from proctable,
@@ -254,8 +230,6 @@ userinit(void)
 
   p->state = RUNNABLE;
 
-  // TODO: check
-  // release(&p->lock);
   acquire(&proctable.lock);
   synclist_push(&proctable, &p->lst);
   release(&proctable.lock);
@@ -280,7 +254,6 @@ growproc(int n)
   p->sz = sz;
   return 0;
 }
-
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
@@ -298,7 +271,6 @@ fork(void)
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
-    // release(&np->lock); //TODO: check
     return -1;
   }
   np->sz = p->sz;
@@ -319,15 +291,12 @@ fork(void)
 
   pid = np->pid;
 
-  // release(&np->lock);
-
   acquire(&wait_lock);
   np->parent = p;
   release(&wait_lock);
 
-  // acquire(&np->lock);
   np->state = RUNNABLE;
-  // release(&np->lock);
+
   acquire(&proctable.lock);
   synclist_push(&proctable, &np->lst);
   release(&proctable.lock);
@@ -340,12 +309,12 @@ fork(void)
 void
 reparent(struct proc *p)
 {
-  for(struct synclist *proclist = synclist_begin(&proctable); 
-      proclist != &proctable; 
-      synclist_iter_next(&proctable, &proclist)) {
+  for(struct synclist *pl = synclist_begin(&proctable);
+      pl != &proctable;
+      synclist_iter_next(&proctable, &pl)) {
     release(&proctable.lock);
 
-    struct proc *pp = (struct proc *)proclist;
+    struct proc *pp = (struct proc *)pl;
 
     if(pp->parent == p){
       pp->parent = initproc;
@@ -403,7 +372,7 @@ exit(int status)
   panic("zombie exit");
 }
 
-/// Wait for a child process to exit and return its pid.
+// Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
 wait(uint64 addr)
@@ -572,11 +541,8 @@ forkret(void)
     // File system initialization must be run in the context of a
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
-    fsinit(ROOTDEV);
-
     first = 0;
-    // ensure other cores see first=0.
-    __sync_synchronize();
+    fsinit(ROOTDEV);
   }
 
   usertrapret();
@@ -677,7 +643,6 @@ kill(int pid)
   return -1;
 }
 
-
 void
 setkilled(struct proc *p)
 {
@@ -727,6 +692,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
   }
 }
 
+
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
@@ -753,7 +719,7 @@ procdump(void)
 
     struct proc *p = (struct proc *)pl;
     // if(p->state == UNUSED)
-    //   continue; // TODO: check
+    //   continue;
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
     else

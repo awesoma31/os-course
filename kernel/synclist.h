@@ -3,7 +3,7 @@
 ///
 /// With this implementation xv6 spends around 5-10 minutes in average
 /// on usertest "forkforkfork". Such behavior appears because acquiring lock
-/// in xv6 implementation entails desabling interrupts and in fact only the
+/// in xv6 implementation entails disabling interrupts and in fact only the
 /// global lock of list (list root lock) is used.
 ///
 
