@@ -228,10 +228,10 @@ userinit(void)
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
-  p->state = RUNNABLE;
-
+  
   acquire(&proctable.lock);
   synclist_push(&proctable, &p->lst);
+  p->state = RUNNABLE;
   release(&proctable.lock);
 }
 
