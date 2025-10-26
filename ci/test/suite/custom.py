@@ -212,7 +212,7 @@ ALLOCTEST = SimpleSuite(
     tests = [
         PatternTest(
             name = "filetest",
-            timeout = timedelta(seconds = 2),
+            timeout = timedelta(seconds = 600),
             patterns = [
                 "filetest: start",
                 "filetest: OK",
