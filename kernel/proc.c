@@ -9,8 +9,6 @@
 
 struct cpu cpus[NCPU];
 
-// struct proc proc[NPROC];
-
 struct synclist proctable;
 
 struct proc *initproc;
