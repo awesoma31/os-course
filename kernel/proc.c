@@ -8,7 +8,12 @@
 
 struct cpu cpus[NCPU];
 
-struct proc proc[NPROC];
+// struct proc proc[NPROC];
+struct proc* proc;
+struct spinlock kvm_lock;
+extern pagetable_t kernel_pagetable;
+
+static int proc_count = 0;
 
 struct proc *initproc;
 
@@ -113,6 +118,8 @@ int dump2(int pid, int regnum, uint64 *uret) {
 void
 proc_mapstacks(pagetable_t kpgtbl)
 {
+
+  if (proc == 0) panic("proc_mapstacks before proc[]");
   struct proc *p;
   
   for(p = proc; p < &proc[NPROC]; p++) {
@@ -120,6 +127,7 @@ proc_mapstacks(pagetable_t kpgtbl)
     if(pa == 0)
       panic("kalloc");
     uint64 va = KSTACK((int) (p - proc));
+    if((va % PGSIZE) != 0) panic("KSTACK not aligned");
     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   }
 }
@@ -132,10 +140,16 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  proc = bd_malloc(sizeof(struct proc) * NPROC);
+  if (proc == 0)
+    panic("procinit: malloc(proc) failed");
+
+  memset(proc, 0, sizeof(struct proc) * NPROC);
+
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
-      p->kstack = KSTACK((int) (p - proc));
+      // p->kstack = KSTACK((int) (p - proc));
   }
 }
 
@@ -192,37 +206,59 @@ allocproc(void)
 {
   struct proc *p;
 
-  for(p = proc; p < &proc[NPROC]; p++) {
+  // try to reuse UNUSED
+  for (p = proc; p < &proc[proc_count]; p++) {
     acquire(&p->lock);
-    if(p->state == UNUSED) {
+    if (p->state == UNUSED) {
       goto found;
-    } else {
-      release(&p->lock);
     }
+    release(&p->lock);
   }
-  return 0;
+
+  if (proc_count == NPROC)
+    return 0;
+
+  int idx = proc_count++;
+  p = &proc[idx];
+
+  initlock(&p->lock, "proc");
+  acquire(&p->lock);
+  p->state = UNUSED;
 
 found:
   p->pid = allocpid();
   p->state = USED;
 
-  // Allocate a trapframe page.
-  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
-    freeproc(p);
+  void *ks = kalloc();
+  if (ks == 0) {
+    p->state = UNUSED;
+    release(&p->lock);
+    return 0;
+  }
+  p->kstack = (uint64)ks;
+
+  // trapframe
+  p->trapframe = (struct trapframe*)kalloc();
+  if (p->trapframe == 0) {
+    kfree((void*)p->kstack);
+    p->kstack = 0;
+    p->state = UNUSED;
     release(&p->lock);
     return 0;
   }
 
-  // An empty user page table.
+  // user pagetable
   p->pagetable = proc_pagetable(p);
-  if(p->pagetable == 0){
-    freeproc(p);
+  if (p->pagetable == 0) {
+    kfree((void*)p->trapframe);
+    p->trapframe = 0;
+    kfree((void*)p->kstack);
+    p->kstack = 0;
+    p->state = UNUSED;
     release(&p->lock);
     return 0;
   }
 
-  // Set up new context to start executing at forkret,
-  // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
@@ -241,6 +277,11 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+
+  if(p->kstack)
+    kfree((void*)p->kstack);
+  p->kstack = 0;
+
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
