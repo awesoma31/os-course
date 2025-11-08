@@ -8,7 +8,6 @@
 
 struct cpu cpus[NCPU];
 
-// struct proc proc[NPROC];
 struct proc* proc;
 struct spinlock kvm_lock;
 extern pagetable_t kernel_pagetable;
@@ -37,7 +36,6 @@ struct spinlock wait_lock;
 void
 proc_mapstacks(pagetable_t kpgtbl)
 {
-
   if (proc == 0) panic("proc_mapstacks before proc[]");
   struct proc *p;
   
@@ -68,7 +66,6 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
-      // p->kstack = KSTACK((int) (p - proc));
   }
 }
 

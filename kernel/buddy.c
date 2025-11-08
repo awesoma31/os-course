@@ -28,13 +28,12 @@ typedef struct list Bd_list;
 // 8 blocks).
 struct sz_info {
   Bd_list free;
-  char *xor_alloc;
+  char *alloc;
   char *split;
 };
 typedef struct sz_info Sz_info;
 
 static inline int pair_index(int bi) { return bi >> 1; }
-
 static inline int buddy_index(int bi) { return bi ^ 1; }
 
 static Sz_info *bd_sizes;
@@ -122,7 +121,7 @@ void *bd_malloc(uint64 nbytes) {
 
   int bi = blk_index(fk, p);
   int pi = pair_index(bi);
-  bit_flip(bd_sizes[k].xor_alloc, pi);
+  bit_flip(bd_sizes[k].alloc, pi);
   release(&lock);
 
   return p;
@@ -147,7 +146,7 @@ void bd_free(void *p) {
   acquire(&lock);
   int bi = blk_index(k, p);
   int pi = pair_index(bi);
-  int x = bit_flip(bd_sizes[k].xor_alloc, pi);
+  int x = bit_flip(bd_sizes[k].alloc, pi);
   if (x == 1) {
     // one block in pair is allocated -> no merge
     lst_push(&bd_sizes[k].free, p);
@@ -219,10 +218,10 @@ void bd_mark(void *start, void *stop) {
     }
 
     if (bi & 1) {
-      bit_flip(bd_sizes[k].xor_alloc, pair_index(bi));
+      bit_flip(bd_sizes[k].alloc, pair_index(bi));
     }
     if (bj & 1) {
-      bit_flip(bd_sizes[k].xor_alloc, pair_index(bj));
+      bit_flip(bd_sizes[k].alloc, pair_index(bj));
     }
   }
 }
@@ -230,8 +229,6 @@ void bd_mark(void *start, void *stop) {
 // Mark the range [bd_base,p) as allocated
 int bd_mark_data_structures(char *p) {
   int meta = p - (char *)bd_base;
-  // printf("bd: %d meta bytes for managing %ld bytes of memory\n", meta,
-  //        BLK_SIZE(MAXSIZE));
   bd_mark(bd_base, p);
   return meta;
 }
@@ -240,7 +237,6 @@ int bd_mark_data_structures(char *p) {
 int bd_mark_unavailable(void *end, void *left) {
   int unavailable = BLK_SIZE(MAXSIZE) - (end - bd_base);
   if (unavailable > 0) unavailable = ROUNDUP(unavailable, LEAF_SIZE);
-  // printf("bd: 0x%x bytes unavailable\n", unavailable);
 
   void *bd_end = bd_base + BLK_SIZE(MAXSIZE) - unavailable;
   bd_mark(bd_end, bd_base + BLK_SIZE(MAXSIZE));
@@ -254,10 +250,10 @@ int bd_initfree_pair(int k, int bi) {
   int buddy = (bi % 2 == 0) ? bi + 1 : bi - 1;
   int free = 0;
   int pi = pair_index(bi);
-  if (bit_isset(bd_sizes[k].xor_alloc, pi)) {
+  if (bit_isset(bd_sizes[k].alloc, pi)) {
     // one of the pair is free
     free = BLK_SIZE(k);
-    // bit_flip(bd_sizes[k].xor_alloc, pi);
+    
     if (bit_isset(bd_sizes[k].split, bi))
       lst_push(&bd_sizes[k].free, addr(k, buddy));  // put buddy on free list
     else
@@ -297,9 +293,6 @@ void bd_init(void *base, void *end) {
     nsizes++;  // round up to the next power of 2
   }
 
-  // printf("bd: memory sz is %ld bytes; allocate an size array of length %d\n",
-  //        (char *)end - p, nsizes);
-
   // allocate bd_sizes array
   bd_sizes = (Sz_info *)p;
   p += sizeof(Sz_info) * nsizes;
@@ -311,8 +304,8 @@ void bd_init(void *base, void *end) {
     int nblk = NBLK(k);
     int npair  = nblk / 2;
     int sz_xor = sizeof(char) * ROUNDUP(npair, 8) / 8;
-    bd_sizes[k].xor_alloc = p;
-    memset(bd_sizes[k].xor_alloc, 0, sz_xor);
+    bd_sizes[k].alloc = p;
+    memset(bd_sizes[k].alloc, 0, sz_xor);
     p += sz_xor;
   }
 
