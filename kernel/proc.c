@@ -9,8 +9,7 @@
 struct cpu cpus[NCPU];
 
 struct proc* proc;
-struct spinlock kvm_lock;
-extern pagetable_t kernel_pagetable;
+// extern pagetable_t kernel_pagetable;
 
 static int proc_count = 0;
 
