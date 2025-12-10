@@ -68,22 +68,20 @@ usertrap(void)
 
     syscall();
   } else if(scause == 13 || scause == 15){
-    // Page fault - optimized for fast rejection of invalid addresses
     uint64 fault_va = r_stval();
     int handled = 0;
     
     // Check valid address ranges
     if(fault_va < KERNBASE) {
-      // Get PTE for valid address
       pte_t *pte = walk(p->pagetable, fault_va, 0);
       
-      // Write fault on COW page (only for heap)
+      // Write fault on COW page 
       if(scause == 15 && pte && (*pte & PTE_V) && (*pte & PTE_COW)) {
         if(cowhandler(p->pagetable, fault_va) == 0) {
           handled = 1;
         }
       }
-      // Unmapped page in heap - lazy allocation
+      // Unmapped page in heap
       else if(fault_va < p->sz && (pte == 0 || (*pte & PTE_V) == 0)) {
         if(lazyhandler(p->pagetable, fault_va, p->sz) == 0) {
           handled = 1;

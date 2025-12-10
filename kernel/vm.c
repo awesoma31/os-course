@@ -177,7 +177,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 }
 
 // Remove npages of mappings starting from va. va must be
-// page-aligned. Skips unmapped pages (for lazy allocation).
+// page-aligned. Skips unmapped pages.
 // Optionally free the physical memory.
 void
 uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
@@ -364,18 +364,17 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       if(mappages(new, i, PGSIZE, pa, flags) != 0)
         goto err;
       krefpage((void*)pa);
-      // Update parent PTE only if needed
+      
       if((*pte & PTE_COW) == 0)
         *pte = (*pte & ~PTE_W) | PTE_COW;
     } else {
-      // Read-only/execute - just share
       if(mappages(new, i, PGSIZE, pa, flags) != 0)
         goto err;
       krefpage((void*)pa);
     }
   }
 
-  // Copy stack pages DIRECTLY (not COW!)
+  // Copy stack pages DIRECTLY
   // Stack must be eagerly allocated, not lazy
   if(stack_base != 0) {
     for(i = stack_base; i < p->stack_end; i += PGSIZE){
@@ -417,17 +416,15 @@ lazyhandler(pagetable_t pagetable, uint64 va, uint64 sz)
   
   va = PGROUNDDOWN(va);
 
-  // Check if va is in valid range (ONLY HEAP, not stack!)
-  // Stack is eagerly allocated, never lazy
+  // Check if va is in valid range (only heap)
   if(va >= sz)
     return -1;
   
-  // Check if already mapped (race condition protection)
+  // Check if already mapped
   pte = walk(pagetable, va, 0);
   if(pte != 0 && (*pte & PTE_V) != 0)
     return 0;
   
-  // Allocate and map new page for heap
   mem = kalloc();
   if(mem == 0)
     return -1;
@@ -464,7 +461,6 @@ cowhandler(pagetable_t pagetable, uint64 va)
     return 0;
   }
   
-  // Slow path: need to copy the page
   mem = kalloc();
   if(mem == 0)
     return -1;
@@ -472,11 +468,9 @@ cowhandler(pagetable_t pagetable, uint64 va)
   memmove(mem, (char*)pa, PGSIZE);
   new_pa = (uint64)mem;
   
-  // Update PTE: keep all flags except COW, add W
   flags = PTE_FLAGS(*pte);
   *pte = PA2PTE(new_pa) | ((flags | PTE_W) & ~PTE_COW);
   
-  // Decrement reference count for old page
   kfree((void*)pa);
   return 0;
 }
@@ -556,7 +550,6 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
         return -1;
     }
     
-    // Check user accessible
     if((*pte & PTE_U) == 0)
       return -1;
     

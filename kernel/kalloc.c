@@ -61,7 +61,6 @@ kfree(void *pa)
   if(ref > 0)
     return;
   
-  // Error check
   if(ref < 0)
     panic("kfree: negative refcount");
 
@@ -87,11 +86,12 @@ kalloc(void)
   release(&kmem.lock);
 
   if(r){
-    pageref.refcnt[PA2IDX(r)] = 1;  // Non-atomic OK: we just allocated it
+    pageref.refcnt[PA2IDX(r)] = 1;
   }
   return (void*)r;
 }
 
+// Increment page reference counter
 void
 krefpage(void *pa)
 {
@@ -102,6 +102,7 @@ krefpage(void *pa)
   __sync_fetch_and_add(&pageref.refcnt[idx], 1);
 }
 
+// Get page reference counter
 int
 krefcnt(void *pa)
 {
