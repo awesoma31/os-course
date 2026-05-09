@@ -23,3 +23,5 @@ compile_commands.events.json
 
 # Python
 __pycache__/
+/os-lab-title-page.pdf
+/os-lab1-report.pdf
